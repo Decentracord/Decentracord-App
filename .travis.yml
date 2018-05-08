@@ -4,6 +4,8 @@ node_js:
   - 9.8.0
 os: osx
 
+sudo: required
+
 env:
   global:
     - ELECTRON_CACHE=$HOME/.cache/electron
