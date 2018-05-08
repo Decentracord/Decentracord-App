@@ -38,22 +38,30 @@ ipfsd.spawn({disposable: false, repoPath: "~/.ipfs"}, (err, ipfsNodee) => {
 
 	updateStatus("IPFS Node spawned.");
 
-	ipfsNode.start((err, ipfs) => {
+	ipfsNode.init((err) => {
 		handleErr(err);
-		updateStatus("IPFS Node started.");
 
-		updateStatus("Resolving the IPNS hash.");
-		ipfs.name.resolve(ipnsHash, (err, ipfsHash) => {
-			ipfs.pin.add(ipfsHash);
+		updateStatus("Initializing the IPFS repo...");
 
-			let urlObj = ipfsNode.gatewayAddr.nodeAddress();
-			let gatewayUrl = "http://"+urlObj.address+":"+urlObj.port;
-			ipfsUrl = gatewayUrl+"/ipfs/"+ipfsHash;
+		ipfsNode.start((err, ipfs) => {
+			handleErr(err);
+
+			updateStatus("Resolving the IPNS hash... This may take a while");
+			ipfs.name.resolve(ipnsHash, (err, ipfsHash) => {
+				handleErr(err);
+
+				ipfs.pin.add(ipfsHash);
+
+				let urlObj = ipfsNode.gatewayAddr.nodeAddress();
+				let gatewayUrl = "http://"+urlObj.address+":"+urlObj.port;
+				ipfsUrl = gatewayUrl+"/ipfs/"+ipfsHash;
 
 			
-			console.log(ipfsUrl);
-			updateStatus("Url obtained. Loading...");
+				console.log(ipfsUrl);
+				updateStatus("Url obtained. Loading...");
+			});
 		});
+
 	});
 });
 
