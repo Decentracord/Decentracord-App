@@ -38,15 +38,19 @@ ipfsd.spawn({disposable: false, repoPath: "~/.ipfs"}, (err, ipfsNodee) => {
 
 	updateStatus("IPFS Node spawned.");
 
-	ipfsNode.init((err) => {
-		handleErr(err);
-
-		updateStatus("Initializing the IPFS repo...");
-
+	isIPFSInitialized("~/.ipfs", (callback) => {
+		ipfsNode.init((err) => {
+			handleErr(err);
+	
+			updateStatus("Initializing the IPFS repo...");
+	
+			callback();
+		});
+	}, () => {
 		ipfsNode.start((err, ipfs) => {
 			handleErr(err);
 
-			updateStatus("Resolving the IPNS hash... This may take a while");
+			updateStatus("Resolving the IPNS hash... This may take a while.");
 			ipfs.name.resolve(ipnsHash, (err, ipfsHash) => {
 				handleErr(err);
 
@@ -61,8 +65,8 @@ ipfsd.spawn({disposable: false, repoPath: "~/.ipfs"}, (err, ipfsNodee) => {
 				updateStatus("Url obtained. Loading...");
 			});
 		});
-
 	});
+
 });
 
 app.on("ready", () => {
@@ -119,6 +123,18 @@ function handleErr(err) {
 		console.error(err);
 	}
 }
+
+function isIPFSInitialized(repoPath, ifNot, callback) {
+	fs.exists(path.join(repoPath, "config"), (err, exists) => {
+		handleErr(err);
+		if (exists) {
+			callback();
+		} else {
+			ifNot(callback);
+		}
+	});
+}
+
 function updateStatus(status, hideStatus) {
 	console.log(status);
 	globalStatus = status;
