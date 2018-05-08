@@ -1,0 +1,21 @@
+{
+	"appId": "io.github.decentracord.decentracord-app",
+	"directories": {
+		"output": "build",
+		"buildResources": "resources"
+	},
+	"files": ["resources"],
+	"mac": {
+		"category": "public.app-category.social-networking",
+		"target": ["dmg", "7z"]
+	},
+	"win": {
+		"target": ["nsis", "portable", "7z"]
+	},
+	"linux": {
+		"target": ["AppImage", "snap", "7z"]
+	},
+	"publish": {
+		"provider": ["github"]
+	}
+}

@@ -140,3 +140,4 @@ $RECYCLE.BIN/
 # Custom
 *.html
 /build
+/electron-builder.env

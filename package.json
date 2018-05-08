@@ -15,7 +15,11 @@
     "electron-builder": "^20.11.1"
   },
   "scripts": {
-    "test": "mocha"
+    "start": "electron .",
+    "test": "mocha",
+    "deploy": "build -mwl -p onTagOrDraft",
+    "build_wl": "build -wl",
+    "build": "build -mwl"
   },
   "repository": {
     "type": "git",
