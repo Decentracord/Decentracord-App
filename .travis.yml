@@ -1,0 +1,25 @@
+language: node_js
+node_js:
+- 9.8.0
+os: osx
+env:
+  global:
+  - ELECTRON_CACHE=$HOME/.cache/electron
+  - ELECTRON_BUILDER_CACHE=$HOME/.cache/electron-builder
+cache:
+  directories:
+  - node_modules
+  - "$HOME/.cache/electron"
+  - "$HOME/.cache/electron-builder"
+  - "$HOME/.npm/_prebuilds"
+  - "$HOME/.ipfs"
+before_cache:
+- rm -rf $HOME/.cache/electron-builder/wine
+- rm -rf $HOME/.ipfs/repo.lock
+- rm -rf $HOME/.ipfs/api
+
+before_script:
+- echo $IPFS_KEY | openssl base64 -d -out $HOME/.ipfs/keystore/decentracord
+script:
+- npm run deploy_app
+# - npm run build_web

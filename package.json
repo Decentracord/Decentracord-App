@@ -1,0 +1,30 @@
+{
+  "name": "decentracord-app",
+  "version": "1.0.0",
+  "description": "An app like discord just decentralized! - Electron App",
+  "main": "src/main.js",
+  "dependencies": {
+    "electron-updater": "^2.21.10",
+    "go-ipfs-dep": "^0.4.14",
+    "ipfsd-ctl": "^0.32.1",
+    "pug": "^2.0.3",
+    "web3": "^0.20.6"
+  },
+  "devDependencies": {
+    "electron": "^1.8.6",
+    "electron-builder": "^20.11.1"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Decentracord/Decentracord-App.git"
+  },
+  "author": "lukas2005",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Decentracord/Decentracord-App/issues"
+  },
+  "homepage": "https://github.com/Decentracord/Decentracord-App#readme"
+}
