@@ -1,10 +1,11 @@
 {
 	"appId": "io.github.decentracord.decentracord-app",
+	"productName": "Decentracord",
 	"directories": {
 		"output": "build",
 		"buildResources": "resources"
 	},
-	"files": ["resources"],
+	"files": ["resources", "src/*"],
 	"mac": {
 		"category": "public.app-category.social-networking",
 		"target": ["dmg", "7z"]
