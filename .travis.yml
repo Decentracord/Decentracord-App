@@ -21,11 +21,11 @@ cache:
 before_cache:
   - rm -rf $HOME/.cache/electron-builder/wine
 
-before_install:
-  - "curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash"
+# before_install:
+#   - "curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash"
 
 script:
   - npm run deploy_app
 
-after_success:
-  - fossa test
+# after_success:
+#   - fossa test
