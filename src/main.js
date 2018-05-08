@@ -33,12 +33,14 @@ function createDefaultWindow(file, options) {
 let ipfsUrl;
 var globalStatus = "Waiting for the IPFS node";
 
-ipfsd.spawn({disposable: false, repoPath: "~/.ipfs"}, (err, ipfsNodee) => {
+let repoPath = path.join("~", ".ipfs");
+
+ipfsd.spawn({disposable: false, repoPath: repoPath}, (err, ipfsNodee) => {
 	ipfsNode = ipfsNodee;
 
 	updateStatus("IPFS Node spawned.");
 
-	isIPFSInitialized("~/.ipfs", (callback) => {
+	isIPFSInitialized(repoPath, (callback) => {
 		ipfsNode.init((err) => {
 			handleErr(err);
 	
@@ -108,8 +110,8 @@ function gracefulQuit() {
 		handleErr(err);
 		ipfsNode.cleanup((err) => {
 			handleErr(err);
-			if (fs.existsSync("~/.ipfs/repo.lock")) {
-				fs.unlinkSync("~/.ipfs/repo.lock");
+			if (fs.existsSync(path.join(repoPath, "api"))) {
+				fs.unlinkSync(path.join(repoPath, "repo.lock"));
 			}
 			app.quit();
 		});
@@ -124,9 +126,14 @@ function handleErr(err) {
 	}
 }
 
+/**
+ * 
+ * @param {string} repoPath 
+ * @param {function} ifNot 
+ * @param {function} callback 
+ */
 function isIPFSInitialized(repoPath, ifNot, callback) {
-	fs.exists(path.join(repoPath, "config"), (err, exists) => {
-		handleErr(err);
+	fs.exists(path.join(repoPath, "config").replace("~", require("os").homedir()), (exists) => {
 		if (exists) {
 			callback();
 		} else {
