@@ -16,6 +16,6 @@
 		"target": ["AppImage", "snap", "7z"]
 	},
 	"publish": {
-		"provider": ["github"]
+		"provider": "github"
 	}
 }
