@@ -25,7 +25,7 @@ before_cache:
 #   - "curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash"
 
 script:
-  - npm run deploy_app
+  - npm run deploy
 
 # after_success:
 #   - fossa test
