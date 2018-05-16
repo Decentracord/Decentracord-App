@@ -28,6 +28,7 @@ ipc.on("updateStatus", (e, args) => {
 	statusText.innerText = args.status;
 	frame.src = args.url;
 	if (args.hideStatus) {
+		console.log("Hide status");
 		statusText.parentElement.removeChild(statusText);
 	}
 });

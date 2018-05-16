@@ -5,6 +5,7 @@ const {autoUpdater} = require("electron-updater");
 const url = require("url");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 
 const pug = require("pug");
 
@@ -14,19 +15,26 @@ let ipfsNode;
 
 const userDataPath = app.getPath("userData");
 let configFile = path.join(userDataPath, "config.json");
+let cachePath = path.join(userDataPath, "ipnsCache.json");
+
 
 let config = {
 };
 
+let ipnsCache = {};
+
+if (fs.existsSync(cachePath)) {
+	ipnsCache = JSON.parse(fs.readFileSync(cachePath));
+}
+
 let win; // this will store the window object
 
-let ipnsHash = "QmWdX5haFxJh1iBNhiextPsc6ifbvZGxqSyrte9QHgVGVU";
+let ipnsHash = "QmaqyhsTB3eND1hsd9toGbf1kzoomtLSVqTeLrvzXUTNN8";
 
 // creates the default window
 function createDefaultWindow(file, options) {
-	win = new BrowserWindow({width: 900, height: 680});
+	win = new BrowserWindow({width: 900, height: 680, frame: false});
 	loadPug(win, file, options);
-	win.on("closed", gracefulQuit);
 	return win;
 }
 
@@ -53,18 +61,22 @@ ipfsd.spawn({disposable: false, repoPath: repoPath}, (err, ipfsNodee) => {
 			handleErr(err);
 
 			updateStatus("Resolving the IPNS hash... This may take a while.");
-			ipfs.name.resolve(ipnsHash, (err, ipfsHash) => {
-				handleErr(err);
+			resolveAndCache(ipfs, ipnsHash, 10800, (err, ipfsPath) => {
+				if (err) {
+					ipfsPath == "/ipns/"+ipnsHash;
+					console.error(err);
+				}
 
-				ipfs.pin.add(ipfsHash);
+				ipfs.pin.add(ipfsPath);
 
 				let urlObj = ipfsNode.gatewayAddr.nodeAddress();
 				let gatewayUrl = "http://"+urlObj.address+":"+urlObj.port;
-				ipfsUrl = gatewayUrl+"/ipfs/"+ipfsHash;
+				ipfsUrl = gatewayUrl+ipfsPath;
 
 			
 				console.log(ipfsUrl);
 				updateStatus("Url obtained. Loading...");
+				setInterval(refreshCache.bind(null, [ipfs]), 1500000);
 			});
 		});
 	});
@@ -89,6 +101,10 @@ ipc.on("quitAndInstall", (event, arg) => {
 
 ipc.on("app-loaded", (e, arg) => {
 	updateStatus("Done", true);
+});
+
+app.on("window-all-closed", () => {
+	gracefulQuit();
 });
 
 function loadPug(win, file, options) {
@@ -151,4 +167,41 @@ function updateStatus(status, hideStatus) {
 	if (win) {
 		win.webContents.send("updateStatus", data);
 	}
+}
+
+function resolveAndCache(ipfs, ipnsHash, time, callback, refresh) {
+	let now = Date.now();
+	if (!refresh && ipnsCache[ipnsHash] && ipnsCache[ipnsHash].cacheUntil > now) {
+		callback(null, ipnsCache[ipnsHash].value);
+	} else {
+		ipfs.name.resolve(ipnsHash, (err, ipfsHash) => {
+			ipnsCache[ipnsHash] = {
+				value: ipfsHash,
+				cacheUntil: now+time*1000,
+				cacheFor: time*1000
+			};
+			if (!refresh) writeCache();
+			callback(ipfsHash);
+		});
+	}
+}
+
+function refreshCache(ipfs) {
+	let cachedHashes = Object.keys(ipnsCache);
+	refresh(ipfs, cachedHashes, 0);
+}
+
+function refresh(ipfs, list, i) {
+	if (i <= list.length-1) {
+		let hash = list[i];
+		resolveAndCache(ipfs, hash, ipnsCache[hash].cacheFor, refresh.bind(null, [ipfs, list, i+1]), true);
+	} else {
+		writeCache();
+	}
+}
+
+function writeCache() { 
+	fs.writeFile(cachePath, JSON.stringify(ipnsCache, null, "\t"), () => {
+		console.log("Cache writtern to "+cachePath);
+	});
 }
