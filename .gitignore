@@ -141,3 +141,4 @@ $RECYCLE.BIN/
 *.html
 /build
 /electron-builder.env
+/go-ipfs

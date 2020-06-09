@@ -1,34 +1,38 @@
 {
-  "name": "anchor-app",
+  "name": "@anchor-chat/app",
   "version": "1.0.0",
   "description": "An app like discord just decentralized! - Electron App",
   "main": "src/main.js",
   "dependencies": {
-    "electron-updater": "^2.21.10",
-    "go-ipfs-dep": "^0.4.14",
-    "ipfsd-ctl": "^0.32.1",
-    "pug": "^2.0.3",
-    "web3": "^0.20.6"
+    "electron-updater": "^4.3.1",
+    "go-ipfs-dep": "^0.5.1",
+    "ipfs-http-client": "^44.2.0",
+    "ipfsd-ctl": "^4.1.1"
   },
   "devDependencies": {
-    "electron": "^1.8.6",
-    "electron-builder": "^20.11.1"
+    "electron": "^9.0.3",
+    "electron-builder": "^22.7.0",
+    "eslint": "^7.2.0"
   },
   "scripts": {
     "start": "electron .",
     "test": "echo No tests for now! && exit 0",
-    "deploy": "build -mwl -p onTagOrDraft",
-    "build_wl": "build -wl",
+    "lint": "eslint . --fix",
+    "deploy": "electron-builder -mwl -p onTagOrDraft",
+    "build_wl": "electron-builder -wl",
     "build": "build -mwl"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Decentracord/Decentracord-App.git"
+    "url": "git+https://github.com/Anchor-Chat/Anchor-App.git"
   },
-  "author": "lukas2005",
+  "author": {
+    "name": "lmarianski",
+    "email": "lmarianski@protonmail.com"
+  },
   "license": "GPL-3.0",
   "bugs": {
-    "url": "https://github.com/Decentracord/Decentracord-App/issues"
+    "url": "https://github.com/Anchor-Chat/Anchor-App/issues"
   },
-  "homepage": "https://github.com/Decentracord/Decentracord-App#readme"
+  "homepage": "https://github.com/Anchor-Chat/Anchor-App#readme"
 }

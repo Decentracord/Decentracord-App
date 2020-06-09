@@ -1,207 +1,198 @@
-const electron = require("electron");
-const {ipcMain: ipc, app, BrowserWindow} = electron;
-const {autoUpdater} = require("electron-updater");
+const electron = require('electron');
+const { ipcMain: ipc, app, BrowserWindow } = electron;
+const { autoUpdater } = require('electron-updater');
 
-const url = require("url");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
+const url = require('url');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { spawnSync } = require('child_process');
 
-const pug = require("pug");
+const ipfsDl = require('go-ipfs-dep');
 
-const IPFSFactory = require("ipfsd-ctl");
-const ipfsd = IPFSFactory.create();
-let ipfsNode;
+const { createController } = require('ipfsd-ctl');
+let ipfsd;
 
-const userDataPath = app.getPath("userData");
-let configFile = path.join(userDataPath, "config.json");
-let cachePath = path.join(userDataPath, "ipnsCache.json");
-
+const userDataPath = app.getPath('userData');
+const configFile = path.join(userDataPath, 'config.json');
+const cachePath = path.join(userDataPath, 'ipnsCache.json');
 
 let config = {
 };
 
 let ipnsCache = {};
 
-if (fs.existsSync(cachePath)) {
-	ipnsCache = JSON.parse(fs.readFileSync(cachePath));
-}
+// if (fs.existsSync(cachePath)) {
+// 	ipnsCache = JSON.parse(fs.readFileSync(cachePath));
+// }
+
+let ipfsBinDir = path.join('.', 'go-ipfs');
+let ipfsBin = path.join('.', 'go-ipfs', 'ipfs' + (process.platform == 'win32' ? '.exe' : ''));
+
+let ipnsHash = '/ipns/QmP7kf4teMVJBZiDMgtMJFUQCtZGstaKpjdDsCvQprRSdd';
+let ipfsUrl = null;
+
+let repoPath = path.join(os.homedir(), '.ipfs');
 
 let win; // this will store the window object
 
-let ipnsHash = "QmaqyhsTB3eND1hsd9toGbf1kzoomtLSVqTeLrvzXUTNN8";
+var globalStatus = 'Waiting for the IPFS node';
 
 // creates the default window
-function createDefaultWindow(file, options) {
-	win = new BrowserWindow({width: 900, height: 680, frame: false});
-	loadPug(win, file, options);
+
+function createWindow() {
+	const win = new BrowserWindow({
+		width: 900,
+		height: 680,
+		// frame: false
+		webPreferences: {
+			nodeIntegration: true,
+			webviewTag: true
+		}
+	});
+
+	win.loadFile(path.join(__dirname, 'public', 'loader.html'));
+
 	return win;
 }
 
-let ipfsUrl;
-var globalStatus = "Waiting for the IPFS node";
+function toSubdomain(ipfsPath) {
 
-let repoPath = path.join("~", ".ipfs");
+	const [_, ipfsProto, ipfsCid] = ipfsPath.split('/');
 
-ipfsd.spawn({disposable: false, repoPath: repoPath}, (err, ipfsNodee) => {
-	ipfsNode = ipfsNodee;
+	console.log(ipfsBin);
+	const cidToBase32 = spawnSync(ipfsBin, ['cid', 'base32', ipfsCid]);
 
-	updateStatus("IPFS Node spawned.");
+	console.dir(cidToBase32);
 
-	isIPFSInitialized(repoPath, (callback) => {
-		ipfsNode.init((err) => {
-			handleErr(err);
-	
-			updateStatus("Initializing the IPFS repo...");
-	
-			callback();
-		});
-	}, () => {
-		ipfsNode.start((err, ipfs) => {
-			handleErr(err);
+	return `${cidToBase32.stdout.toString()}.${ipfsProto}`;
+}
 
-			updateStatus("Resolving the IPNS hash... This may take a while.");
-			resolveAndCache(ipfs, ipnsHash, 10800, (err, ipfsPath) => {
-				if (err) {
-					ipfsPath == "/ipns/"+ipnsHash;
-					console.error(err);
-				}
+app.whenReady().then(async () => {
+	//autoUpdater.checkForUpdates();
+	win = createWindow();
 
-				ipfs.pin.add(ipfsPath);
+	if (!fs.existsSync(ipfsBin)) {
+		await ipfsDl();
+	}
 
-				let urlObj = ipfsNode.gatewayAddr.nodeAddress();
-				let gatewayUrl = "http://"+urlObj.address+":"+urlObj.port;
-				ipfsUrl = gatewayUrl+ipfsPath;
 
-			
-				console.log(ipfsUrl);
-				updateStatus("Url obtained. Loading...");
-				setInterval(refreshCache.bind(null, [ipfs]), 1500000);
-			});
-		});
+
+	// win.webContents.on('did-finish-load', async () => {
+	ipfsd = await createController({
+		ipfsHttpModule: require('ipfs-http-client'),
+		ipfsBin,
+		disposable: false,
+		remote: false,
+		args: ['--enable-pubsub-experiment']
 	});
 
-});
+	if (!fs.existsSync(path.join(repoPath, 'config'))) {
+		updateStatus('Initializing the IPFS repo...');
 
-app.on("ready", () => {
-	//autoUpdater.checkForUpdates();
+		await spawnSync(ipfsBin, ['init'], {
+			stdio: 'inherit'
+		});
 
-	createDefaultWindow("loader", { url: url, status: globalStatus });
-});
+		await ipfsd.init();
+	}
+
+	updateStatus('Starting IPFS Node...');
+	await ipfsd.start();
+
+	await ipfsd.api.pubsub.ls();
+
+	updateStatus('Resolving the IPNS hash... This may take a while.');
+
+	// let ipfsPath = await resolveAndCache(ipfsd.api, ipnsHash, 10800);
+
+	// ipfsd.api.pin.add(ipnsHash);
+
+	const splitGateway = (await ipfsd.api.config.get('Addresses.Gateway')).split('/');
+
+	const port = splitGateway[splitGateway.length - 1];
+	ipfsUrl = `http://${toSubdomain(ipnsHash)}.localhost:${port}`;
+
+	console.log(ipfsUrl);
+	updateStatus('Url obtained. Loading...');
+	// setInterval(() => { refreshCache(ipfsd.api); }, 1500000);
+	// });
+}).catch(handleErr);
 
 // when the update has been downloaded and is ready to be installed, notify the BrowserWindow
-autoUpdater.on("update-downloaded", (info) => {
-	win.webContents.send("updateReady");
+autoUpdater.on('update-downloaded', (info) => {
+	win.webContents.send('updateReady');
 });
 
 // when receiving a quitAndInstall signal, quit and install the new version ;)
-ipc.on("quitAndInstall", (event, arg) => {
+ipc.on('quitAndInstall', (event, arg) => {
 	autoUpdater.quitAndInstall();
 });
 
-ipc.on("app-loaded", (e, arg) => {
-	updateStatus("Done", true);
+ipc.on('app-loaded', (e, arg) => {
+	updateStatus('Done', true);
 });
 
-app.on("window-all-closed", () => {
+app.on('window-all-closed', () => {
 	gracefulQuit();
 });
 
-function loadPug(win, file, options) {
-	//let h = "data:text/html;charset=utf-8," + encodeURI(pug.renderFile(file));
-    
-	let pathToFile = path.join(__dirname, "public", file);
-
-	fs.writeFileSync(pathToFile+".html", pug.renderFile(pathToFile+".pug", options));
-
-	win.loadURL(url.format({
-		pathname: pathToFile+".html",
-		protocol: "file:",
-		slashes: true
-	}));
-}
-
-function gracefulQuit() {
-	ipfsNode.stop((err) => {
-		handleErr(err);
-		ipfsNode.cleanup((err) => {
-			handleErr(err);
-			if (fs.existsSync(path.join(repoPath, "api"))) {
-				fs.unlinkSync(path.join(repoPath, "repo.lock"));
-			}
-			app.quit();
-		});
-	});
+async function gracefulQuit() {
+	app.quit();
 }
 
 function handleErr(err) {
 	if (err) {
-		updateStatus("Error: "+err);
+		updateStatus('Error: ' + err);
 		setTimeout(gracefulQuit, 2000);
 		console.error(err);
 	}
 }
 
-/**
- * 
- * @param {string} repoPath 
- * @param {function} ifNot 
- * @param {function} callback 
- */
-function isIPFSInitialized(repoPath, ifNot, callback) {
-	fs.exists(path.join(repoPath, "config").replace("~", require("os").homedir()), (exists) => {
-		if (exists) {
-			callback();
-		} else {
-			ifNot(callback);
-		}
-	});
-}
-
 function updateStatus(status, hideStatus) {
 	console.log(status);
 	globalStatus = status;
-	//ipc.emit("updateStatus", { url: ipfsUrl, status: status });
-	let data = { url: ipfsUrl, status: status };
-	if (hideStatus) data.hideStatus = hideStatus;
+
 	if (win) {
-		win.webContents.send("updateStatus", data);
+		console.log('win');
+		win.webContents.send('updateStatus', { ipfsUrl, status, hideStatus });
 	}
 }
 
-function resolveAndCache(ipfs, ipnsHash, time, callback, refresh) {
-	let now = Date.now();
+async function resolveAndCache(ipfs, ipnsHash, time, refresh) {
+	const now = Date.now();
 	if (!refresh && ipnsCache[ipnsHash] && ipnsCache[ipnsHash].cacheUntil > now) {
-		callback(null, ipnsCache[ipnsHash].value);
+		return ipnsCache[ipnsHash].value;
 	} else {
-		ipfs.name.resolve(ipnsHash, (err, ipfsHash) => {
-			ipnsCache[ipnsHash] = {
-				value: ipfsHash,
-				cacheUntil: now+time*1000,
-				cacheFor: time*1000
-			};
-			if (!refresh) writeCache();
-			callback(ipfsHash);
-		});
+		let hash;
+		for await (const ipfsHash of await ipfs.name.resolve(ipnsHash)) {
+			hash = ipfsHash;
+		}
+
+		ipnsCache[ipnsHash] = {
+			value: hash,
+			cacheUntil: now + time * 1000,
+			cacheFor: time * 1000
+		};
+
+		if (!refresh) writeCache();
+
+		return hash;
 	}
 }
 
-function refreshCache(ipfs) {
-	let cachedHashes = Object.keys(ipnsCache);
-	refresh(ipfs, cachedHashes, 0);
-}
-
-function refresh(ipfs, list, i) {
-	if (i <= list.length-1) {
-		let hash = list[i];
-		resolveAndCache(ipfs, hash, ipnsCache[hash].cacheFor, refresh.bind(null, [ipfs, list, i+1]), true);
-	} else {
-		writeCache();
+async function refreshCache(ipfs) {
+	const l = [];
+	for (const hash in ipnsCache) {
+		l.push(resolveAndCache(ipfs, hash, ipnsCache[hash].cacheFor, true));
 	}
+
+	await Promise.all(l);
+	writeCache();
 }
 
-function writeCache() { 
-	fs.writeFile(cachePath, JSON.stringify(ipnsCache, null, "\t"), () => {
-		console.log("Cache writtern to "+cachePath);
-	});
+function writeCache() {
+	fs.writeFileSync(cachePath, JSON.stringify(ipnsCache, null, '\t'));
+
+	console.log('Cache writtern to ' + cachePath);
 }
