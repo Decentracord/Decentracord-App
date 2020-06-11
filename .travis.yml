@@ -2,7 +2,7 @@ language: node_js
 
 node_js:
   - 14
-os: osx
+# os: osx
 
 sudo: required
 
@@ -21,12 +21,14 @@ cache:
 before_cache:
   - rm -rf $HOME/.cache/electron-builder/wine
 
-# before_install:
-#   - "curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash"
+before_script:
+  - "curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash"
+  - fossa init
 
 script:
+  - npm run build
+  - fossa analyze
   - npm test
-  - npm run deploy
 
-# after_success:
-#   - fossa
+after_success:
+  - fossa test

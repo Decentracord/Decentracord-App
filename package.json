@@ -19,9 +19,8 @@
     "start": "electron .",
     "test": "echo No tests for now! && exit 0",
     "lint": "eslint . --fix",
-    "deploy": "electron-builder -mwl -p onTagOrDraft",
     "build_wl": "electron-builder -wl --x64",
-    "build": "build -mwl"
+    "build": "electron-builder -wl"
   },
   "repository": {
     "type": "git",
