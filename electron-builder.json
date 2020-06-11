@@ -25,12 +25,12 @@
 		"target": ["dmg", "7z"]
 	},
 	"win": {
-		"target": ["zip"]
+		"target": ["zip", "nsis", "portable"]
 	},
 	"linux": {
-		"target": ["tar.gz", "pacman", "deb"]
+		"target": ["tar.gz", "pacman", "deb", "rpm"]
 	},
 	"publish": {
 		"provider": "github"
-	},
+	}
 }

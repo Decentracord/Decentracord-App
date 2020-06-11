@@ -11,20 +11,15 @@ const { spawnSync } = require('child_process');
 const ipfsDl = require('go-ipfs-dep');
 
 const { createController } = require('ipfsd-ctl');
-let ipfsd;
+const CID = require('cids');
 
 const userDataPath = app.getPath('userData');
 const configFile = path.join(userDataPath, 'config.json');
-const cachePath = path.join(userDataPath, 'ipnsCache.json');
 
 let config = {
 };
 
-let ipnsCache = {};
-
-// if (fs.existsSync(cachePath)) {
-// 	ipnsCache = JSON.parse(fs.readFileSync(cachePath));
-// }
+let ipfsd;
 
 let ipfsBinDir = path.join('.', 'go-ipfs');
 let ipfsBin = path.join('.', 'go-ipfs', 'ipfs' + (process.platform == 'win32' ? '.exe' : ''));
@@ -36,10 +31,7 @@ let repoPath = path.join(os.homedir(), '.ipfs');
 
 let win; // this will store the window object
 
-var globalStatus = 'Waiting for the IPFS node';
-
 // creates the default window
-
 function createWindow() {
 	const win = new BrowserWindow({
 		width: 900,
@@ -57,15 +49,11 @@ function createWindow() {
 }
 
 function toSubdomain(ipfsPath) {
+	let [_, ipfsProto, ipfsCid] = ipfsPath.split('/');
 
-	const [_, ipfsProto, ipfsCid] = ipfsPath.split('/');
+	ipfsCid = new CID(ipfsCid).toV1().toString('base32');
 
-	console.log(ipfsBin);
-	const cidToBase32 = spawnSync(ipfsBin, ['cid', 'base32', ipfsCid]);
-
-	console.dir(cidToBase32);
-
-	return `${cidToBase32.stdout.toString()}.${ipfsProto}`;
+	return `${ipfsCid}.${ipfsProto}`;
 }
 
 app.whenReady().then(async () => {
@@ -76,45 +64,72 @@ app.whenReady().then(async () => {
 		await ipfsDl();
 	}
 
-
-
 	// win.webContents.on('did-finish-load', async () => {
 	ipfsd = await createController({
 		ipfsHttpModule: require('ipfs-http-client'),
 		ipfsBin,
-		disposable: false,
+		disposable: true,
 		remote: false,
-		args: ['--enable-pubsub-experiment']
+		args: ['--enable-pubsub-experiment'],
+		ipfsOptions: {
+			config: {
+				Addresses: {
+					API: '/ip4/127.0.0.1/tcp/5555',
+					Gateway: '/ip4/127.0.0.1/tcp/8888'
+				}
+			}
+		}
 	});
 
-	if (!fs.existsSync(path.join(repoPath, 'config'))) {
-		updateStatus('Initializing the IPFS repo...');
+	// if (!fs.existsSync(path.join(repoPath, 'config'))) {
+	// 	updateStatus('Initializing the IPFS repo...');
 
-		await spawnSync(ipfsBin, ['init'], {
-			stdio: 'inherit'
-		});
+	// 	// await spawnSync(ipfsBin, ['init'], {
+	// 	// 	stdio: 'inherit'
+	// 	// });
+	// }
 
-		await ipfsd.init();
-	}
+	updateStatus('Initializing IPFS repo...');
+	await ipfsd.init();
 
 	updateStatus('Starting IPFS Node...');
+	// try {
 	await ipfsd.start();
+	// } catch(e) {
+	// 	const lock = path.join(repoPath, 'repo.lock');
+	// 	if (fs.existsSync(lock)) {
+	// 		fs.unlinkSync(lock);
 
+	// 		await ipfsd.start();
+	// 	} else {
+	// 		throw e;
+	// 	}
+	// }
 	await ipfsd.api.pubsub.ls();
 
-	updateStatus('Resolving the IPNS hash... This may take a while.');
+	updateStatus('Looking up gateway address...');
 
 	// let ipfsPath = await resolveAndCache(ipfsd.api, ipnsHash, 10800);
 
-	// ipfsd.api.pin.add(ipnsHash);
+	// setTimeout(async () => {
+	// 	let path;
+	// 	for await (const p of ipfsd.api.name.resolve(ipnsHash)) {
+	// 		path = p;
+	// 	}
+	// 	ipfsd.api.pin.add(path);
+	// }, 10);
+
+
 
 	const splitGateway = (await ipfsd.api.config.get('Addresses.Gateway')).split('/');
-
 	const port = splitGateway[splitGateway.length - 1];
+
 	ipfsUrl = `http://${toSubdomain(ipnsHash)}.localhost:${port}`;
 
 	console.log(ipfsUrl);
-	updateStatus('Url obtained. Loading...');
+	updateStatus('URL obtained. Loading...');
+	// win.webContents.send('connect-ipfs', ipfsd.apiAddr);
+
 	// setInterval(() => { refreshCache(ipfsd.api); }, 1500000);
 	// });
 }).catch(handleErr);
@@ -131,13 +146,22 @@ ipc.on('quitAndInstall', (event, arg) => {
 
 ipc.on('app-loaded', (e, arg) => {
 	updateStatus('Done', true);
+
+	setTimeout(() => {
+	}, 2000);
 });
 
-app.on('window-all-closed', () => {
+app.on('will-quit', () => {
 	gracefulQuit();
 });
 
 async function gracefulQuit() {
+	if (ipfsd.started) {
+		if (ipfsd.gatewayAddr) {
+			updateStatus('Stopping IPFS Node...');
+			await ipfsd.stop();
+		}
+	}
 	app.quit();
 }
 
@@ -151,48 +175,8 @@ function handleErr(err) {
 
 function updateStatus(status, hideStatus) {
 	console.log(status);
-	globalStatus = status;
 
 	if (win) {
-		console.log('win');
 		win.webContents.send('updateStatus', { ipfsUrl, status, hideStatus });
 	}
-}
-
-async function resolveAndCache(ipfs, ipnsHash, time, refresh) {
-	const now = Date.now();
-	if (!refresh && ipnsCache[ipnsHash] && ipnsCache[ipnsHash].cacheUntil > now) {
-		return ipnsCache[ipnsHash].value;
-	} else {
-		let hash;
-		for await (const ipfsHash of await ipfs.name.resolve(ipnsHash)) {
-			hash = ipfsHash;
-		}
-
-		ipnsCache[ipnsHash] = {
-			value: hash,
-			cacheUntil: now + time * 1000,
-			cacheFor: time * 1000
-		};
-
-		if (!refresh) writeCache();
-
-		return hash;
-	}
-}
-
-async function refreshCache(ipfs) {
-	const l = [];
-	for (const hash in ipnsCache) {
-		l.push(resolveAndCache(ipfs, hash, ipnsCache[hash].cacheFor, true));
-	}
-
-	await Promise.all(l);
-	writeCache();
-}
-
-function writeCache() {
-	fs.writeFileSync(cachePath, JSON.stringify(ipnsCache, null, '\t'));
-
-	console.log('Cache writtern to ' + cachePath);
 }

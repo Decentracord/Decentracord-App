@@ -4,6 +4,7 @@
   "description": "An app like discord just decentralized! - Electron App",
   "main": "src/main.js",
   "dependencies": {
+    "cids": "^0.8.1",
     "electron-updater": "^4.3.1",
     "go-ipfs-dep": "^0.5.1",
     "ipfs-http-client": "^44.2.0",
@@ -19,7 +20,7 @@
     "test": "echo No tests for now! && exit 0",
     "lint": "eslint . --fix",
     "deploy": "electron-builder -mwl -p onTagOrDraft",
-    "build_wl": "electron-builder -wl",
+    "build_wl": "electron-builder -wl --x64",
     "build": "build -mwl"
   },
   "repository": {

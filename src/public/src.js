@@ -5,19 +5,23 @@ const webview = document.getElementById('app');
 const spinner = document.getElementById('spinner');
 const statusText = document.getElementById('loading-text');
 
-let rdy = 0;
+let rdy = false;
 
 webview.addEventListener('dom-ready', () => {
+	webview.openDevTools();
+
+	console.log(rdy);
+
 	console.log('dom-ready');
-	if (rdy == 1) {
-		webview.openDevTools();
+	if (rdy) {
 		spinner.style.visibility = 'hidden';
 		webview.style.visibility = 'visible';
-		ipc.emit('app-loaded');
+		// statusText.style.visibility = 'hidden';
 
-		statusText.style.visibility = 'hidden';
+		ipc.send('app-loaded');
+	} else {
+		rdy = true;
 	}
-	rdy++;
 });
 
 const rects = document.getElementsByClassName('sk-rect');
@@ -38,15 +42,23 @@ while(i < rects.length-1) {
 	i++;
 }
 
+ipc.on('connect-ipfs', (e, apiAddr) => {
+	webview.addEventListener('did-finish-load', () => {
+		webview.send('connect-ipfs', apiAddr);
+	});
+});
+
 ipc.on('updateStatus', (e, args) => {
 	console.log('updateStatus');
 	statusText.innerText = args.status;
-	if (args.ipfsUrl != null) {
+	if (args.ipfsUrl != null && args.status !== 'Done') {
 		webview.loadURL(args.ipfsUrl);
 		console.log(args.ipfsUrl);
 	}
 	if (args.hideStatus) {
 		console.log('Hide status');
-		statusText.parentElement.removeChild(statusText);
+		statusText.style.visibility = 'hidden';
+	} else {
+		statusText.style.visibility = 'visible';
 	}
 });
